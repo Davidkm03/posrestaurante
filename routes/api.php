@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\Api\V1\OrderApiController;
-use App\Http\Controllers\Api\V1\ProductApiController;
-use App\Http\Controllers\Api\V1\ReportApiController;
-use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\TableController;
+use App\Http\Controllers\Api\V1\CustomerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,46 +22,50 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
     // Rutas públicas (webhooks)
     Route::prefix('webhooks')->name('webhooks.')->group(function () {
-        Route::post('/dian', [WebhookController::class, 'dian'])->name('dian');
-        Route::post('/rappi', [WebhookController::class, 'rappi'])->name('rappi');
-        Route::post('/ifood', [WebhookController::class, 'ifood'])->name('ifood');
-        Route::post('/ubereats', [WebhookController::class, 'ubereats'])->name('ubereats');
-        Route::post('/payment-gateway', [WebhookController::class, 'paymentGateway'])->name('payment-gateway');
+        Route::post('/dian', fn() => response()->json(['status' => 'ok']))->name('dian');
+        Route::post('/rappi', fn() => response()->json(['status' => 'ok']))->name('rappi');
+        Route::post('/ifood', fn() => response()->json(['status' => 'ok']))->name('ifood');
+        Route::post('/ubereats', fn() => response()->json(['status' => 'ok']))->name('ubereats');
     });
 
     // Rutas autenticadas
     Route::middleware('auth:sanctum')->group(function () {
 
         // Productos
-        Route::apiResource('products', ProductApiController::class)->only(['index', 'show']);
-        Route::get('products/search', [ProductApiController::class, 'search'])->name('products.search');
-        Route::get('categories', [ProductApiController::class, 'categories'])->name('categories');
-        Route::get('categories/{category}/products', [ProductApiController::class, 'categoryProducts'])->name('categories.products');
+        Route::get('products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('products/barcode/{barcode}', [ProductController::class, 'barcode'])->name('products.barcode');
+        Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+
+        // Categorías
+        Route::get('categories', [ProductController::class, 'categories'])->name('categories');
+        Route::get('categories/{category}/products', [ProductController::class, 'byCategory'])->name('categories.products');
 
         // Órdenes
-        Route::apiResource('orders', OrderApiController::class);
-        Route::post('orders/{order}/items', [OrderApiController::class, 'addItem'])->name('orders.add-item');
-        Route::delete('orders/{order}/items/{item}', [OrderApiController::class, 'removeItem'])->name('orders.remove-item');
-        Route::post('orders/{order}/pay', [OrderApiController::class, 'pay'])->name('orders.pay');
-        Route::post('orders/{order}/cancel', [OrderApiController::class, 'cancel'])->name('orders.cancel');
-
-        // Reportes
-        Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/sales/summary', [ReportApiController::class, 'salesSummary'])->name('sales.summary');
-            Route::get('/sales/by-product', [ReportApiController::class, 'salesByProduct'])->name('sales.by-product');
-            Route::get('/sales/by-category', [ReportApiController::class, 'salesByCategory'])->name('sales.by-category');
-            Route::get('/sales/by-hour', [ReportApiController::class, 'salesByHour'])->name('sales.by-hour');
-            Route::get('/inventory/stock', [ReportApiController::class, 'inventoryStock'])->name('inventory.stock');
-        });
+        Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('orders/pending', [OrderController::class, 'pending'])->name('orders.pending');
+        Route::get('orders/kitchen', [OrderController::class, 'kitchen'])->name('orders.kitchen');
+        Route::post('orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+        Route::post('orders/{order}/items', [OrderController::class, 'addItems'])->name('orders.add-items');
+        Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
+        Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
 
         // Mesas
-        Route::get('tables', [OrderApiController::class, 'tables'])->name('tables');
-        Route::get('tables/{table}', [OrderApiController::class, 'table'])->name('tables.show');
-        Route::get('tables/{table}/orders', [OrderApiController::class, 'tableOrders'])->name('tables.orders');
+        Route::get('tables', [TableController::class, 'index'])->name('tables.index');
+        Route::get('tables/available', [TableController::class, 'available'])->name('tables.available');
+        Route::get('tables/summary', [TableController::class, 'summary'])->name('tables.summary');
+        Route::get('tables/{table}', [TableController::class, 'show'])->name('tables.show');
+        Route::patch('tables/{table}/status', [TableController::class, 'updateStatus'])->name('tables.update-status');
 
         // Clientes
-        Route::get('customers/search', [OrderApiController::class, 'searchCustomers'])->name('customers.search');
-        Route::post('customers', [OrderApiController::class, 'createCustomer'])->name('customers.store');
+        Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
+        Route::get('customers/document/{document}', [CustomerController::class, 'byDocument'])->name('customers.by-document');
+        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
+        Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::get('customers/{customer}/orders', [CustomerController::class, 'orders'])->name('customers.orders');
 
     });
 });
