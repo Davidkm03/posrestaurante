@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\ReservationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +67,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::get('customers/{customer}/orders', [CustomerController::class, 'orders'])->name('customers.orders');
+
+        // Reservaciones
+        Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
+        Route::get('reservations/today', [ReservationController::class, 'today'])->name('reservations.today');
+        Route::get('reservations/stats', [ReservationController::class, 'stats'])->name('reservations.stats');
+        Route::get('reservations/available-slots', [ReservationController::class, 'availableSlots'])->name('reservations.available-slots');
+        Route::get('reservations/available-tables', [ReservationController::class, 'availableTables'])->name('reservations.available-tables');
+        Route::post('reservations', [ReservationController::class, 'store'])->name('reservations.store');
+        Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+        Route::put('reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+        Route::post('reservations/{reservation}/confirm', [ReservationController::class, 'confirm'])->name('reservations.confirm');
+        Route::post('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
+        Route::post('reservations/{reservation}/seat', [ReservationController::class, 'seat'])->name('reservations.seat');
+        Route::post('reservations/{reservation}/no-show', [ReservationController::class, 'noShow'])->name('reservations.no-show');
 
     });
 });
