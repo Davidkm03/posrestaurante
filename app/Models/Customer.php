@@ -92,6 +92,17 @@ class Customer extends Model
         return $query->where('is_active', true);
     }
 
+    // Accessors
+    public function getNameAttribute(): string
+    {
+        return $this->getFullName();
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return $this->getFullName();
+    }
+
     // Helpers
     public function getFullName(): string
     {

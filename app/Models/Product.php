@@ -99,9 +99,33 @@ class Product extends Model
         return $this->hasOne(Recipe::class);
     }
 
-    public function combo(): HasOne
+    /**
+     * Items incluidos cuando este producto es un combo
+     */
+    public function comboItems(): HasMany
     {
-        return $this->hasOne(Combo::class);
+        return $this->hasMany(ComboItem::class, 'combo_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Productos incluidos en este combo (a través de comboItems)
+     */
+    public function comboProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'combo_items', 'combo_id', 'product_id')
+            ->withPivot('quantity', 'sort_order')
+            ->orderByPivot('sort_order')
+            ->withTimestamps();
+    }
+
+    /**
+     * Combos que incluyen este producto
+     */
+    public function includedInCombos(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'combo_items', 'product_id', 'combo_id')
+            ->withPivot('quantity', 'sort_order')
+            ->withTimestamps();
     }
 
     public function orderItems(): HasMany

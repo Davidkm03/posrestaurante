@@ -95,7 +95,7 @@
                                 <x-badge type="danger" dot>Inactivo</x-badge>
                             @endif
                         </button>
-                        <form id="toggle-form-{{ $product->id }}" action="{{ route('admin.products.toggle-status', $product) }}" method="POST" class="hidden">
+                        <form id="toggle-form-{{ $product->id }}" action="{{ route('admin.products.toggle-active', $product) }}" method="POST" class="hidden">
                             @csrf
                             @method('PATCH')
                         </form>

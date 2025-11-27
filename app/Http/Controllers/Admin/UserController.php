@@ -124,6 +124,9 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $user->update(['password' => Hash::make($validated['password'])]);
+            return redirect()
+                ->route('admin.users.index')
+                ->with('success', 'Usuario y contraseña actualizados exitosamente.');
         }
 
         // Sincronizar roles

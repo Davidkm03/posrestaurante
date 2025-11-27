@@ -19,10 +19,56 @@ class PaymentService
         protected InvoiceService $invoiceService
     ) {}
 
-    public function processPayment(Order $order, array $payments, float $tip = 0, bool $generateInvoice = false): array
+    public function processPayment(Order $order, array $paymentData): Payment
+    {
+        // Get or create payment method with proper type mapping
+        $methodCode = $paymentData['method'];
+        $typeMapping = [
+            'cash' => 'cash',
+            'efectivo' => 'cash',
+            'card' => 'credit_card',
+            'tarjeta' => 'credit_card',
+            'credit_card' => 'credit_card',
+            'debit_card' => 'debit_card',
+            'transfer' => 'transfer',
+            'transferencia' => 'transfer',
+            'nequi' => 'nequi',
+            'daviplata' => 'daviplata',
+            'voucher' => 'voucher',
+            'bono' => 'voucher',
+            'credit' => 'credit',
+            'credito' => 'credit',
+        ];
+        
+        $type = $typeMapping[strtolower($methodCode)] ?? 'cash';
+        
+        $paymentMethod = PaymentMethod::firstOrCreate(
+            ['code' => $methodCode],
+            [
+                'name' => ucfirst($methodCode),
+                'type' => $type,
+                'is_active' => true,
+            ]
+        );
+
+        return Payment::create([
+            'order_id' => $order->id,
+            'cash_session_id' => session('cash_session_id'),
+            'user_id' => auth()->id(),
+            'payment_method_id' => $paymentMethod->id,
+            'amount' => $paymentData['amount'],
+            'received_amount' => $paymentData['amount'],
+            'change_amount' => 0,
+            'reference' => $paymentData['reference'] ?? null,
+            'status' => 'completed',
+            'paid_at' => now(),
+        ]);
+    }
+
+    public function completeOrder(Order $order, array $payments): Order
     {
         $totalPayment = collect($payments)->sum('amount');
-        $totalRequired = $order->total + $tip;
+        $totalRequired = $order->total;
 
         if ($totalPayment < $totalRequired) {
             throw new \InvalidArgumentException(
@@ -30,15 +76,10 @@ class PaymentService
             );
         }
 
-        return DB::transaction(function () use ($order, $payments, $tip, $generateInvoice, $totalPayment, $totalRequired) {
-            // Update tip
-            if ($tip > 0) {
-                $order->update(['tip' => $tip]);
-            }
-
+        return DB::transaction(function () use ($order, $payments, $totalPayment, $totalRequired) {
             // Register payments
             foreach ($payments as $paymentData) {
-                $this->createPayment($order, $paymentData);
+                $this->processPayment($order, $paymentData);
             }
 
             // Calculate change
@@ -47,9 +88,9 @@ class PaymentService
             // Complete order
             $order->update([
                 'status' => OrderStatus::PAID->value,
-                'paid_at' => now(),
-                'cashier_id' => auth()->id(),
-                'change_amount' => $change,
+                'payment_status' => PaymentStatus::COMPLETED->value,
+                'completed_at' => now(),
+                'paid_amount' => $totalPayment,
             ]);
 
             // Free table
@@ -60,32 +101,8 @@ class PaymentService
                 ]);
             }
 
-            // Generate invoice
-            $invoice = null;
-            if ($generateInvoice && $order->customer_id) {
-                $invoice = $this->invoiceService->generateFromOrder($order);
-            }
-
-            return [
-                'success' => true,
-                'order' => $order->fresh(['payments.method']),
-                'change' => $change,
-                'invoice' => $invoice,
-            ];
+            return $order->fresh(['payments']);
         });
-    }
-
-    public function createPayment(Order $order, array $data): Payment
-    {
-        return Payment::create([
-            'order_id' => $order->id,
-            'payment_method_id' => $data['payment_method_id'],
-            'amount' => $data['amount'],
-            'reference' => $data['reference'] ?? null,
-            'status' => PaymentStatus::COMPLETED->value,
-            'processed_at' => now(),
-            'processed_by' => auth()->id(),
-        ]);
     }
 
     public function splitPayment(Order $order, string $splitType, array $params): array
@@ -224,12 +241,12 @@ class PaymentService
         })
             ->where('status', PaymentStatus::COMPLETED->value)
             ->whereBetween('processed_at', [$startDate, $endDate . ' 23:59:59'])
-            ->with('method')
+            ->with('paymentMethod')
             ->get()
             ->groupBy('payment_method_id')
             ->map(function ($payments) {
                 return [
-                    'method' => $payments->first()->method->name ?? 'Desconocido',
+                    'method' => $payments->first()->paymentMethod->name ?? 'Desconocido',
                     'count' => $payments->count(),
                     'total' => $payments->sum('amount'),
                 ];

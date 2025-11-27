@@ -8,12 +8,13 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * A basic test example.
+     * La aplicación redirige a login para usuarios no autenticados.
      */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_the_application_redirects_unauthenticated_users(): void
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        // La app requiere autenticación, así que redirige (302) a login
+        $response->assertRedirect();
     }
 }

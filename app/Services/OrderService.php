@@ -10,6 +10,8 @@ use App\Models\Modifier;
 use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Enums\TableStatus;
+use App\Events\OrderCreated;
+use App\Events\OrderStatusUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
@@ -25,13 +27,13 @@ class OrderService
                 'type' => $data['type'],
                 'table_id' => $data['table_id'] ?? null,
                 'customer_id' => $data['customer_id'] ?? null,
-                'waiter_id' => $data['waiter_id'] ?? auth()->id(),
+                'user_id' => $data['user_id'] ?? auth()->id(),
                 'status' => OrderStatus::PENDING->value,
                 'guests' => $data['guests'] ?? 1,
                 'notes' => $data['notes'] ?? null,
                 'subtotal' => 0,
-                'tax' => 0,
-                'discount' => 0,
+                'tax_amount' => 0,
+                'discount_amount' => 0,
                 'total' => 0,
             ]);
 
@@ -41,7 +43,12 @@ class OrderService
                 $this->updateTableStatus($order->table_id, TableStatus::OCCUPIED, $order->id);
             }
 
-            return $order->fresh(['items.product', 'items.modifiers', 'table', 'customer']);
+            $order = $order->fresh(['items.product', 'items.modifiers', 'table', 'customer']);
+            
+            // Broadcast evento de nueva orden
+            event(new OrderCreated($order));
+            
+            return $order;
         });
     }
 
@@ -59,37 +66,41 @@ class OrderService
         $product = Product::findOrFail($itemData['product_id']);
 
         $unitPrice = $product->price;
-        $modifiersTotal = 0;
-        $modifierIds = [];
+        $modifiersData = [];
 
         if (!empty($itemData['modifiers'])) {
             $modifiers = Modifier::whereIn('id', $itemData['modifiers'])->get();
-            $modifiersTotal = $modifiers->sum('price');
-            $modifierIds = $modifiers->pluck('id')->toArray();
+            foreach ($modifiers as $modifier) {
+                $modifiersData[] = [
+                    'modifier_id' => $modifier->id,
+                    'name' => $modifier->name,
+                    'price' => $modifier->price,
+                    'quantity' => 1,
+                ];
+                $unitPrice += $modifier->price;
+            }
         }
 
-        $unitPrice += $modifiersTotal;
         $quantity = $itemData['quantity'];
         $subtotal = $unitPrice * $quantity;
 
-        $taxAmount = $this->calculateTax($subtotal, $product->tax_percentage, $product->tax_included);
+        $taxAmount = $this->calculateTax($subtotal, $product->tax_percentage ?? 0, $product->tax_included ?? false);
 
         $orderItem = OrderItem::create([
             'order_id' => $order->id,
             'product_id' => $product->id,
-            'product_name' => $product->name,
+            'name' => $product->name,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
-            'subtotal' => $subtotal,
-            'tax_type' => $product->tax_type,
-            'tax_percentage' => $product->tax_percentage,
             'tax_amount' => $taxAmount,
+            'total' => $subtotal,
             'notes' => $itemData['notes'] ?? null,
             'status' => 'pending',
         ]);
 
-        if (!empty($modifierIds)) {
-            $orderItem->modifiers()->attach($modifierIds);
+        // Create modifier records
+        foreach ($modifiersData as $modifierData) {
+            $orderItem->modifiers()->create($modifierData);
         }
 
         return $orderItem;
@@ -130,11 +141,10 @@ class OrderService
         };
 
         $order->update([
-            'discount' => $discount,
+            'discount_amount' => $discount,
             'discount_type' => $type,
-            'discount_value' => $value,
             'discount_reason' => $reason,
-            'discount_by' => auth()->id(),
+            'discount_authorized_by' => auth()->id(),
             'total' => $order->subtotal - $discount,
         ]);
 
@@ -143,23 +153,28 @@ class OrderService
 
     public function sendToKitchen(Order $order): Order
     {
+        $oldStatus = $order->status->value;
+        
         $order->update([
             'status' => OrderStatus::IN_PREPARATION->value,
-            'sent_to_kitchen_at' => now(),
         ]);
 
         $order->items()
             ->where('status', 'pending')
             ->update(['status' => 'preparing']);
 
-        return $order->fresh();
+        $order = $order->fresh();
+        event(new OrderStatusUpdated($order, $oldStatus));
+        
+        return $order;
     }
 
     public function markReady(Order $order): Order
     {
+        $oldStatus = $order->status->value;
+        
         $order->update([
             'status' => OrderStatus::READY->value,
-            'ready_at' => now(),
         ]);
 
         $order->items()->update([
@@ -167,17 +182,22 @@ class OrderService
             'prepared_at' => now(),
         ]);
 
-        return $order->fresh();
+        $order = $order->fresh();
+        event(new OrderStatusUpdated($order, $oldStatus));
+        
+        return $order;
     }
 
     public function markDelivered(Order $order): Order
     {
         $order->update([
             'status' => OrderStatus::DELIVERED->value,
-            'delivered_at' => now(),
         ]);
 
-        $order->items()->update(['status' => 'delivered']);
+        $order->items()->update([
+            'status' => 'delivered',
+            'delivered_at' => now(),
+        ]);
 
         return $order->fresh();
     }
@@ -186,9 +206,7 @@ class OrderService
     {
         $order->update([
             'status' => OrderStatus::CANCELLED->value,
-            'cancellation_reason' => $reason,
-            'cancelled_at' => now(),
-            'cancelled_by' => auth()->id(),
+            'notes' => ($order->notes ? $order->notes . "\n" : '') . "Cancelado: " . $reason,
         ]);
 
         if ($order->table_id) {
@@ -202,8 +220,8 @@ class OrderService
     {
         $order->update([
             'status' => OrderStatus::PAID->value,
-            'paid_at' => now(),
-            'cashier_id' => auth()->id(),
+            'payment_status' => \App\Enums\PaymentStatus::COMPLETED->value,
+            'completed_at' => now(),
         ]);
 
         if ($order->table_id) {
@@ -217,13 +235,13 @@ class OrderService
     {
         $items = $order->items()->get();
 
-        $subtotal = $items->sum('subtotal');
+        $subtotal = $items->sum('total');
         $tax = $items->sum('tax_amount');
-        $discount = $order->discount ?? 0;
+        $discount = $order->discount_amount ?? 0;
 
         $order->update([
             'subtotal' => $subtotal,
-            'tax' => $tax,
+            'tax_amount' => $tax,
             'total' => $subtotal - $discount,
         ]);
 
@@ -274,7 +292,6 @@ class OrderService
 
         $validOrders = $orders->whereNotIn('status', [
             OrderStatus::CANCELLED->value,
-            OrderStatus::VOIDED->value,
         ]);
 
         return [
@@ -282,8 +299,8 @@ class OrderService
             'completed_orders' => $validOrders->count(),
             'cancelled_orders' => $orders->where('status', OrderStatus::CANCELLED->value)->count(),
             'total_sales' => $validOrders->sum('total'),
-            'total_tax' => $validOrders->sum('tax'),
-            'total_discount' => $validOrders->sum('discount'),
+            'total_tax' => $validOrders->sum('tax_amount'),
+            'total_discount' => $validOrders->sum('discount_amount'),
             'avg_ticket' => $validOrders->count() > 0 ? $validOrders->avg('total') : 0,
             'by_type' => $validOrders->groupBy('type')->map->count(),
             'by_status' => $orders->groupBy('status')->map->count(),

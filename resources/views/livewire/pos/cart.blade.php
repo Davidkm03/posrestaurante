@@ -121,30 +121,30 @@
 
     <!-- Totals -->
     <div class="flex-shrink-0 p-3 border-t border-gray-700 space-y-2">
-        <div class="flex justify-between text-sm text-gray-400">
-            <span>Subtotal</span>
-            <span>${{ number_format($subtotal, 0, ',', '.') }}</span>
-        </div>
         @if($discount > 0)
+            <div class="flex justify-between text-sm text-gray-400">
+                <span>Subtotal</span>
+                <span>${{ number_format($subtotal, 0, ',', '.') }}</span>
+            </div>
             <div class="flex justify-between text-sm text-green-400">
                 <span>Descuento</span>
                 <span>-${{ number_format($discount, 0, ',', '.') }}</span>
             </div>
         @endif
-        <div class="flex justify-between text-sm text-gray-400">
-            <span>IVA</span>
-            <span>${{ number_format($tax, 0, ',', '.') }}</span>
-        </div>
-        <div class="flex justify-between text-xl font-bold text-white pt-2 border-t border-gray-600">
+        <div class="flex justify-between text-xl font-bold text-white {{ $discount > 0 ? 'pt-2 border-t border-gray-600' : '' }}">
             <span>Total</span>
             <span>${{ number_format($total, 0, ',', '.') }}</span>
         </div>
+        <p class="text-xs text-gray-400">* Precio incluye IVA</p>
     </div>
 
     <!-- Actions -->
     <div class="flex-shrink-0 p-3 border-t border-gray-700 space-y-2">
         <div class="grid grid-cols-2 gap-2">
-            <button wire:click="sendToKitchen" @disabled(count($items) === 0) class="py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors">
+            <button 
+                wire:click="sendToKitchen" 
+                @if(empty($items)) disabled @endif
+                class="py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors">
                 <span class="flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
@@ -152,7 +152,10 @@
                     Cocina
                 </span>
             </button>
-            <button wire:click="goToPayment" @disabled(count($items) === 0) class="py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors">
+            <button 
+                wire:click="goToPayment" 
+                @if(empty($items)) disabled @endif
+                class="py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors">
                 <span class="flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>

@@ -29,7 +29,10 @@
 
             <x-card title="Información del Cliente" class="mb-6">
                 <div class="space-y-4">
-                    <x-input name="name" label="Nombre completo / Razón social" required />
+                    <div class="grid grid-cols-2 gap-4">
+                        <x-input name="first_name" label="Nombre" required placeholder="Juan" />
+                        <x-input name="last_name" label="Apellido" placeholder="Pérez García" />
+                    </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <x-select name="document_type" label="Tipo de documento" required :options="collect($documentTypes)->mapWithKeys(fn($d) => [$d->value => $d->label()])->toArray()" />
@@ -52,14 +55,14 @@
 
             <x-card title="Información Tributaria (Empresas)" class="mb-6" id="business-fields">
                 <div class="space-y-4">
-                    <x-input name="business_name" label="Nombre comercial" />
+                    <x-input name="business_name" label="Razón social / Nombre comercial" />
                     <div class="grid grid-cols-2 gap-4">
                         <x-select name="tax_regime" label="Régimen tributario" :options="[
                             'simplified' => 'Régimen Simple',
                             'common' => 'Régimen Común',
                             'special' => 'Régimen Especial',
                         ]" placeholder="Seleccionar..." />
-                        <x-input name="tax_responsibilities" label="Responsabilidades (O-13, etc.)" />
+                        <x-input name="fiscal_responsibilities" label="Responsabilidades (O-13, etc.)" />
                     </div>
                 </div>
             </x-card>

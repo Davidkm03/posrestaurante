@@ -21,13 +21,18 @@ class POSController extends Controller
         $branchId = session('current_branch_id');
 
         // Verificar si hay caja abierta
-        $cashSession = CashSession::where('branch_id', $branchId)
+        $cashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
         if (!$cashSession) {
-            return redirect()->route('pos.open-cash')->with('warning', 'Debe abrir caja antes de usar el POS.');
+            return redirect()->route('admin.cash.index')->with('warning', 'Debe abrir caja antes de usar el POS.');
         }
+
+        // Guardar ID de sesión de caja en la sesión
+        session(['cash_session_id' => $cashSession->id]);
 
         // Cargar zonas y mesas
         $zones = Zone::where('branch_id', $branchId)
@@ -63,7 +68,9 @@ class POSController extends Controller
         $branchId = session('current_branch_id');
 
         // Verificar caja abierta
-        $cashSession = CashSession::where('branch_id', $branchId)
+        $cashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -71,30 +78,27 @@ class POSController extends Controller
             return redirect()->route('pos.open-cash');
         }
 
+        // Guardar ID de sesión de caja en la sesión
+        session(['cash_session_id' => $cashSession->id]);
+
         // Cargar orden actual de la mesa si existe
         $currentOrder = $table->currentOrder()
-            ->with(['items.product', 'items.modifiers', 'waiter', 'customer'])
+            ->with(['items.product', 'items.modifiers', 'user', 'customer'])
             ->first();
 
-        // Categorías y productos
-        $categories = Category::where('is_active', true)
-            ->where('show_in_pos', true)
-            ->with(['products' => function ($query) {
-                $query->where('is_active', true)
-                    ->where('show_in_pos', true)
-                    ->orderBy('sort_order');
-            }])
-            ->orderBy('sort_order')
-            ->get();
+        // Cargar la mesa con su zona
+        $table->load('zone');
 
-        return view('pos.table', compact('table', 'currentOrder', 'categories', 'cashSession'));
+        return view('pos.table', compact('table', 'currentOrder', 'cashSession'));
     }
 
     public function quickSale()
     {
         $branchId = session('current_branch_id');
 
-        $cashSession = CashSession::where('branch_id', $branchId)
+        $cashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -119,7 +123,9 @@ class POSController extends Controller
     {
         $branchId = session('current_branch_id');
 
-        $cashSession = CashSession::where('branch_id', $branchId)
+        $cashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -152,7 +158,9 @@ class POSController extends Controller
     {
         $branchId = session('current_branch_id');
 
-        $cashSession = CashSession::where('branch_id', $branchId)
+        $cashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -177,7 +185,7 @@ class POSController extends Controller
                 OrderStatus::PENDING->value,
                 OrderStatus::IN_PREPARATION->value,
                 OrderStatus::READY->value,
-                OrderStatus::ON_DELIVERY->value
+                OrderStatus::DELIVERED->value
             ])
             ->with(['customer', 'items', 'deliveryDriver'])
             ->orderBy('created_at')
@@ -216,7 +224,9 @@ class POSController extends Controller
         $branchId = session('current_branch_id');
 
         // Verificar si ya hay caja abierta
-        $existingSession = CashSession::where('branch_id', $branchId)
+        $existingSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -241,9 +251,8 @@ class POSController extends Controller
         ]);
 
         $session = CashSession::create([
-            'branch_id' => $branchId,
             'cash_register_id' => $request->cash_register_id,
-            'opened_by' => auth()->id(),
+            'user_id' => auth()->id(),
             'opened_at' => now(),
             'opening_amount' => $request->opening_amount,
         ]);
@@ -251,5 +260,25 @@ class POSController extends Controller
         session(['cash_session_id' => $session->id]);
 
         return redirect()->route('pos.index')->with('success', 'Caja abierta exitosamente.');
+    }
+
+    public function printReceipt(Order $order)
+    {
+        // Cargar relaciones necesarias
+        $order->load(['items.modifiers', 'branch', 'table', 'waiter', 'customer']);
+
+        // Obtener pagos de la orden
+        $payments = $order->payments->map(function ($payment) {
+            return [
+                'method' => $payment->paymentMethod->code ?? 'cash',
+                'amount' => $payment->amount,
+                'reference' => $payment->reference,
+            ];
+        })->toArray();
+
+        $totalPaid = $order->paid_amount;
+        $change = max(0, $totalPaid - $order->total);
+
+        return view('pos.receipt', compact('order', 'payments', 'totalPaid', 'change'));
     }
 }

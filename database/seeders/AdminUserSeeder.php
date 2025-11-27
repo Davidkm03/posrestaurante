@@ -36,7 +36,7 @@ class AdminUserSeeder extends Seeder
         // Crear usuario administrador
         $admin = User::create([
             'name' => 'Administrador',
-            'email' => 'admin@pos.com',
+            'email' => 'admin@posrestaurante.com',
             'password' => Hash::make('password'),
             'pin' => '1234',
             'position' => 'Administrador',

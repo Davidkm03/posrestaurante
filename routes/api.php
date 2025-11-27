@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\ReservationController;
+use App\Http\Controllers\Admin\RappiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,7 +25,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Rutas públicas (webhooks)
     Route::prefix('webhooks')->name('webhooks.')->group(function () {
         Route::post('/dian', fn() => response()->json(['status' => 'ok']))->name('dian');
-        Route::post('/rappi', fn() => response()->json(['status' => 'ok']))->name('rappi');
+        Route::post('/rappi', [RappiController::class, 'webhook'])->name('rappi');
         Route::post('/ifood', fn() => response()->json(['status' => 'ok']))->name('ifood');
         Route::post('/ubereats', fn() => response()->json(['status' => 'ok']))->name('ubereats');
     });

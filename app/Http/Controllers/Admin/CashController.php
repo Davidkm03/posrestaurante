@@ -16,14 +16,18 @@ class CashController extends Controller
         $branchId = session('current_branch_id');
 
         // Sesión actual
-        $currentSession = CashSession::where('branch_id', $branchId)
+        $currentSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
-            ->with(['cashRegister', 'openedBy', 'movements'])
+            ->with(['cashRegister', 'user', 'movements'])
             ->first();
 
         // Historial de sesiones
-        $query = CashSession::where('branch_id', $branchId)
-            ->with(['cashRegister', 'openedBy', 'closedBy']);
+        $query = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->with(['cashRegister', 'user', 'closedBy']);
 
         if ($request->filled('date_from')) {
             $query->whereDate('opened_at', '>=', $request->date_from);
@@ -46,7 +50,9 @@ class CashController extends Controller
         $branchId = session('current_branch_id');
 
         // Verificar si ya hay una sesión abierta
-        $existingSession = CashSession::where('branch_id', $branchId)
+        $existingSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
@@ -61,12 +67,11 @@ class CashController extends Controller
         ]);
 
         $session = CashSession::create([
-            'branch_id' => $branchId,
             'cash_register_id' => $request->cash_register_id,
-            'opened_by' => auth()->id(),
+            'user_id' => auth()->id(),
             'opened_at' => now(),
             'opening_amount' => $request->opening_amount,
-            'notes' => $request->notes,
+            'opening_notes' => $request->notes,
         ]);
 
         // Guardar en sesión
@@ -94,15 +99,15 @@ class CashController extends Controller
             ->sum('total');
 
         $totalCash = $cashSession->payments()
-            ->whereHas('method', fn($q) => $q->where('type', 'cash'))
+            ->whereHas('paymentMethod', fn($q) => $q->where('type', 'cash'))
             ->sum('amount');
 
         $totalCard = $cashSession->payments()
-            ->whereHas('method', fn($q) => $q->whereIn('type', ['credit_card', 'debit_card']))
+            ->whereHas('paymentMethod', fn($q) => $q->whereIn('type', ['credit_card', 'debit_card']))
             ->sum('amount');
 
         $totalOther = $cashSession->payments()
-            ->whereHas('method', fn($q) => $q->whereNotIn('type', ['cash', 'credit_card', 'debit_card']))
+            ->whereHas('paymentMethod', fn($q) => $q->whereNotIn('type', ['cash', 'credit_card', 'debit_card']))
             ->sum('amount');
 
         $movements = $cashSession->movements;
@@ -137,10 +142,10 @@ class CashController extends Controller
     {
         $cashSession->load([
             'cashRegister',
-            'openedBy',
+            'user',
             'closedBy',
             'movements.user',
-            'orders.payments.method',
+            'orders.payments.paymentMethod',
         ]);
 
         return view('admin.cash.show', compact('cashSession'));
@@ -177,10 +182,12 @@ class CashController extends Controller
         $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->toDateString());
         $endDate = $request->get('end_date', Carbon::now()->toDateString());
 
-        $sessions = CashSession::where('branch_id', $branchId)
+        $sessions = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNotNull('closed_at')
             ->whereBetween('opened_at', [$startDate, $endDate . ' 23:59:59'])
-            ->with(['openedBy', 'closedBy', 'cashRegister'])
+            ->with(['user', 'closedBy', 'cashRegister'])
             ->get();
 
         $summary = [
@@ -193,5 +200,61 @@ class CashController extends Controller
         ];
 
         return view('admin.cash.report', compact('sessions', 'summary', 'startDate', 'endDate'));
+    }
+
+    public function sessions(Request $request)
+    {
+        $branchId = session('current_branch_id');
+
+        $query = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->whereNotNull('closed_at')
+            ->with(['cashRegister', 'user', 'closedBy']);
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('opened_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('opened_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('cash_register_id')) {
+            $query->where('cash_register_id', $request->cash_register_id);
+        }
+
+        $sessions = $query->latest('opened_at')->paginate(20);
+        $cashRegisters = CashRegister::where('branch_id', $branchId)->get();
+
+        return view('admin.cash.sessions', compact('sessions', 'cashRegisters'));
+    }
+
+    public function showSession(CashSession $session)
+    {
+        $session->load([
+            'cashRegister',
+            'user',
+            'closedBy',
+            'movements.user',
+            'orders.payments.paymentMethod',
+        ]);
+
+        $cashSession = $session;
+        return view('admin.cash.show', compact('cashSession'));
+    }
+
+    public function sessionReport(CashSession $session)
+    {
+        $session->load([
+            'cashRegister',
+            'user',
+            'closedBy',
+            'movements.user',
+            'orders.payments.paymentMethod',
+        ]);
+
+        // Aquí podrías generar un PDF o vista especial para imprimir
+        return view('admin.cash.session-report', compact('session'));
     }
 }

@@ -32,7 +32,7 @@ class ProductGrid extends Component
     public function loadCategories()
     {
         $this->categories = Category::where('is_active', true)
-            ->withCount(['products' => fn($q) => $q->where('is_active', true)->where('is_available', true)])
+            ->withCount(['products' => fn($q) => $q->where('is_active', true)->where('show_in_pos', true)])
             ->orderBy('sort_order')
             ->get()
             ->toArray();
@@ -114,7 +114,7 @@ class ProductGrid extends Component
     {
         $product = Product::where('barcode', $barcode)
             ->where('is_active', true)
-            ->where('is_available', true)
+            ->where('show_in_pos', true)
             ->first();
 
         if ($product) {
@@ -127,7 +127,7 @@ class ProductGrid extends Component
     public function render()
     {
         $query = Product::where('is_active', true)
-            ->where('is_available', true)
+            ->where('show_in_pos', true)
             ->with(['category', 'modifierGroups']);
 
         if ($this->categoryId) {

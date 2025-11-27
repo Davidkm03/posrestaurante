@@ -22,6 +22,8 @@ class OrderItem extends Model
         'tax_amount',
         'total',
         'status',
+        'kitchen_status',
+        'is_ready',
         'notes',
         'is_courtesy',
         'courtesy_reason',
@@ -40,26 +42,37 @@ class OrderItem extends Model
             'tax_amount' => 'decimal:2',
             'total' => 'decimal:2',
             'is_courtesy' => 'boolean',
+            'is_ready' => 'boolean',
             'sent_at' => 'datetime',
             'prepared_at' => 'datetime',
             'delivered_at' => 'datetime',
         ];
     }
 
+    /**
+     * Accessor para obtener el nombre del producto
+     */
+    public function getProductNameAttribute(): string
+    {
+        return $this->name ?? $this->product?->name ?? 'Producto';
+    }
+
     protected static function boot()
     {
         parent::boot();
 
-        static::saving(function ($item) {
-            $item->calculateTotal();
-        });
-
         static::saved(function ($item) {
-            $item->order->recalculateTotals();
+            // Only recalculate order totals, not item totals
+            // Item totals should be calculated when modifiers are added
+            if ($item->order) {
+                $item->order->recalculateTotals();
+            }
         });
 
         static::deleted(function ($item) {
-            $item->order->recalculateTotals();
+            if ($item->order) {
+                $item->order->recalculateTotals();
+            }
         });
     }
 

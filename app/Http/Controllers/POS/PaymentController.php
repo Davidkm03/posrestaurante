@@ -21,7 +21,7 @@ class PaymentController extends Controller
             return redirect()->route('pos.index')->with('info', 'Esta orden ya fue pagada.');
         }
 
-        $order->load(['items.product', 'table', 'customer', 'payments.method']);
+        $order->load(['items.product', 'table', 'customer', 'payments.paymentMethod']);
 
         $paymentMethods = PaymentMethod::where('is_active', true)
             ->orderBy('sort_order')
@@ -113,7 +113,7 @@ class PaymentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'order' => $order->fresh(['payments.method']),
+                'order' => $order->fresh(['payments.paymentMethod']),
                 'change' => $change,
                 'invoice' => $invoice,
             ]);
@@ -257,7 +257,7 @@ class PaymentController extends Controller
 
     public function receipt(Order $order)
     {
-        $order->load(['items.product', 'payments.method', 'customer', 'branch', 'waiter', 'cashier']);
+        $order->load(['items.product', 'payments.paymentMethod', 'customer', 'branch', 'waiter', 'cashier']);
 
         return view('pos.receipt', compact('order'));
     }

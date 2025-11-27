@@ -32,7 +32,8 @@ class AuthenticatedSessionController extends Controller
 
         $this->setDefaultBranch();
 
-        return redirect()->intended(route('admin.dashboard'));
+        // Redirigir según el rol del usuario
+        return redirect()->intended($this->getRedirectRoute());
     }
 
     public function loginWithPin(Request $request)
@@ -59,7 +60,7 @@ class AuthenticatedSessionController extends Controller
 
         return response()->json([
             'success' => true,
-            'redirect' => route('pos.index'),
+            'redirect' => $this->getRedirectRoute(),
         ]);
     }
 
@@ -86,5 +87,19 @@ class AuthenticatedSessionController extends Controller
                 'current_branch_name' => $defaultBranch->name,
             ]);
         }
+    }
+
+    protected function getRedirectRoute(): string
+    {
+        $user = Auth::user();
+        $position = strtolower($user->position ?? '');
+
+        return match($position) {
+            'mesero' => route('waiter.index'),
+            'cajero' => route('pos.index'),
+            'cocina' => route('kitchen.index'),
+            'gerente', 'administrador' => route('admin.dashboard'),
+            default => route('admin.dashboard'),
+        };
     }
 }

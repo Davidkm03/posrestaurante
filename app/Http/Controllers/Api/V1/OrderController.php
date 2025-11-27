@@ -80,7 +80,7 @@ class OrderController extends Controller
             'waiter',
             'items.product',
             'items.modifiers',
-            'payments.method',
+            'payments.paymentMethod',
         ]);
 
         return response()->json([

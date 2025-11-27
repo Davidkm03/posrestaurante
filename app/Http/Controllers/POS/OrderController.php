@@ -53,13 +53,13 @@ class OrderController extends Controller
                 'type' => $validated['type'],
                 'table_id' => $validated['table_id'] ?? null,
                 'customer_id' => $validated['customer_id'] ?? null,
-                'waiter_id' => auth()->id(),
+                'user_id' => auth()->id(),
                 'status' => OrderStatus::PENDING->value,
                 'guests' => $validated['guests'] ?? 1,
                 'notes' => $validated['notes'] ?? null,
                 'subtotal' => 0,
-                'tax' => 0,
-                'discount' => 0,
+                'tax_amount' => 0,
+                'discount_amount' => 0,
                 'total' => 0,
             ]);
 

@@ -71,6 +71,22 @@
             }
             lastTouchEnd = now;
         }, false);
+
+        // Listen for print-receipt event
+        document.addEventListener('livewire:initialized', () => {
+            Livewire.on('print-receipt', (data) => {
+                const orderId = data.orderId || data[0].orderId;
+                const url = `/pos/print/receipt/${orderId}`;
+                
+                // Abrir en ventana nueva
+                const printWindow = window.open(url, '_blank', 'width=400,height=600');
+                
+                // Si el navegador bloqueó la ventana, mostrar mensaje
+                if (!printWindow || printWindow.closed || typeof printWindow.closed === 'undefined') {
+                    alert('Por favor permite ventanas emergentes para imprimir el recibo');
+                }
+            });
+        });
     </script>
 
     @stack('scripts')

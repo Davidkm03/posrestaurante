@@ -165,6 +165,20 @@ class Cart extends Component
             return;
         }
 
+        // Validar que exista sesión de caja
+        $cashSessionId = session('cash_session_id');
+        if (!$cashSessionId) {
+            $this->dispatch('notify', type: 'error', message: 'No hay caja abierta. Por favor abra una caja primero.');
+            return;
+        }
+
+        // Validar que exista branch
+        $branchId = session('current_branch_id');
+        if (!$branchId) {
+            $this->dispatch('notify', type: 'error', message: 'No hay sucursal seleccionada.');
+            return;
+        }
+
         $orderService = app(OrderService::class);
 
         try {
@@ -176,8 +190,8 @@ class Cart extends Component
             ], $this->items);
 
             $order = $orderService->create([
-                'branch_id' => session('current_branch_id'),
-                'cash_session_id' => session('cash_session_id'),
+                'branch_id' => $branchId,
+                'cash_session_id' => $cashSessionId,
                 'type' => $this->orderType,
                 'table_id' => $this->tableId,
                 'customer_id' => $this->customerId,
@@ -195,7 +209,14 @@ class Cart extends Component
             $this->dispatch('notify', type: 'success', message: 'Orden creada: ' . $order->order_number);
 
         } catch (\Exception $e) {
-            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+            $this->dispatch('notify', [
+                'type' => 'error', 
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+            \Illuminate\Support\Facades\Log::error('Error creando orden: ' . $e->getMessage(), [
+                'exception' => $e,
+                'items' => $this->items,
+            ]);
         }
     }
 
@@ -267,38 +288,39 @@ class Cart extends Component
 
     protected function loadOrder(int $orderId)
     {
-        $order = \App\Models\Order::with(['items.modifiers', 'customer'])->find($orderId);
+        $order = \App\Models\Order::with(['items.modifiers', 'items.product', 'customer'])->find($orderId);
 
         if (!$order) return;
 
-        $this->orderType = $order->type;
+        $this->orderId = $order->id;
+        $this->orderType = $order->type->value;
         $this->customerId = $order->customer_id;
         $this->notes = $order->notes ?? '';
         $this->guests = $order->guests ?? 1;
 
         foreach ($order->items as $item) {
             $modifierDetails = $item->modifiers->map(fn($m) => [
-                'id' => $m->id,
+                'id' => $m->modifier_id,
                 'name' => $m->name,
-                'price' => $m->price,
+                'price' => (float) $m->price,
             ])->toArray();
 
             $this->items[] = [
                 'id' => uniqid(),
                 'product_id' => $item->product_id,
-                'name' => $item->product_name,
-                'unit_price' => $item->unit_price,
-                'base_price' => $item->unit_price - array_sum(array_column($modifierDetails, 'price')),
-                'quantity' => $item->quantity,
-                'subtotal' => $item->subtotal,
+                'name' => $item->name,
+                'unit_price' => (float) $item->unit_price,
+                'base_price' => (float) $item->unit_price - array_sum(array_column($modifierDetails, 'price')),
+                'quantity' => (float) $item->quantity,
+                'subtotal' => (float) $item->total,
                 'modifiers' => $modifierDetails,
                 'notes' => $item->notes ?? '',
-                'tax_type' => $item->tax_type,
-                'tax_percentage' => $item->tax_percentage,
+                'tax_type' => $item->product->tax_type ?? '01',
+                'tax_percentage' => $item->product->tax_percentage ?? '19.00',
             ];
         }
 
-        $this->discount = $order->discount;
+        $this->discount = (float) ($order->discount_amount ?? 0);
         $this->recalculate();
     }
 

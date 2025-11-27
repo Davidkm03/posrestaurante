@@ -38,10 +38,10 @@
             @if($required) required @endif
             @if($disabled) disabled @endif
             {{ $attributes->except('class')->merge([
-                'class' => 'block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-500' .
+                'class' => 'block w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-2.5 text-gray-900 placeholder-gray-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-0 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed' .
                     ($prefix ? ' pl-10' : '') .
                     ($suffix ? ' pr-10' : '') .
-                    ($error || $errors->has($name) ? ' border-red-300 text-red-900 placeholder-red-300 focus:border-red-500 focus:ring-red-500' : '')
+                    ($error || $errors->has($name) ? ' border-red-300 text-red-900 placeholder-red-300 focus:border-red-500' : '')
             ]) }}
         >
 

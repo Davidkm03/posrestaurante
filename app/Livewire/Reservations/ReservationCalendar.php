@@ -122,27 +122,35 @@ class ReservationCalendar extends Component
 
     public function createReservation()
     {
-        $this->validate();
+        $validated = $this->validate();
+
+        // Verificar que existe una sucursal activa
+        $branchId = session('current_branch_id');
+        if (!$branchId) {
+            $this->dispatch('notify', type: 'error', message: 'No hay una sucursal seleccionada. Por favor selecciona una sucursal primero.');
+            return;
+        }
 
         try {
             $reservation = $this->reservationService->create([
+                'branch_id' => $branchId,
                 'customer_name' => $this->customerName,
                 'customer_phone' => $this->customerPhone,
-                'customer_email' => $this->customerEmail,
+                'customer_email' => $this->customerEmail ?: null,
                 'reservation_date' => $this->reservationDate,
                 'reservation_time' => $this->reservationTime,
                 'party_size' => $this->partySize,
                 'duration_minutes' => $this->duration,
-                'table_id' => $this->tableId,
-                'special_requests' => $this->specialRequests,
-                'internal_notes' => $this->internalNotes,
+                'table_id' => $this->tableId ?: null,
+                'special_requests' => $this->specialRequests ?: null,
+                'internal_notes' => $this->internalNotes ?: null,
             ]);
 
-            $this->dispatch('notify', type: 'success', message: 'Reservación creada exitosamente');
             $this->closeCreateModal();
+            $this->dispatch('notify', type: 'success', message: 'Reservación creada exitosamente');
 
         } catch (\Exception $e) {
-            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Error: ' . $e->getMessage());
         }
     }
 

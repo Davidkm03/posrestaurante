@@ -167,6 +167,24 @@
                     });
                 });
             }
+            
+            // Escuchar eventos de WebSocket para cambios en mesas
+            if (typeof window.Echo !== 'undefined') {
+                const branchId = '{{ session("current_branch_id") }}';
+                
+                window.Echo.channel(`pos.${branchId}`)
+                    .listen('.table.status.updated', (e) => {
+                        console.log('Mesa actualizada:', e);
+                        
+                        // Recargar para mostrar cambios
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    })
+                    .listen('.order.created', (e) => {
+                        console.log('Nueva orden en POS:', e);
+                    });
+            }
         });
     </script>
     @endpush

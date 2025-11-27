@@ -162,7 +162,6 @@ return new class extends Migration
             $table->string('track_id')->nullable();
             $table->timestamps();
 
-            $table->index(['documentable_type', 'documentable_id']);
             $table->index(['status']);
         });
     }

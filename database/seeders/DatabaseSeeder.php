@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             PaymentMethodSeeder::class,
             AdminUserSeeder::class,
             DemoDataSeeder::class,
+            DIANResolutionSeeder::class,
         ]);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Reservation;
 use App\Models\Table;
 use App\Models\Customer;
+use App\Enums\DocumentType;
 use App\Enums\ReservationStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -364,11 +365,20 @@ class ReservationService
 
         // Create new customer if email provided
         if (!empty($data['customer_email'])) {
+            // Separar nombre completo en first_name y last_name
+            $nameParts = explode(' ', $data['customer_name'], 2);
+            $firstName = $nameParts[0];
+            $lastName = $nameParts[1] ?? '';
+
             $customer = Customer::create([
-                'name' => $data['customer_name'],
+                'branch_id' => $data['branch_id'] ?? session('current_branch_id'),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
                 'phone' => $data['customer_phone'],
                 'email' => $data['customer_email'],
-                'document_type' => 'consumidor_final',
+                'document_type' => DocumentType::CC,
+                'customer_type' => \App\Enums\CustomerType::NATURAL,
+                'is_active' => true,
             ]);
 
             return $customer->id;

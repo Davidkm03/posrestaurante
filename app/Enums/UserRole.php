@@ -27,6 +27,20 @@ enum UserRole: string
         };
     }
 
+    public function description(): string
+    {
+        return match($this) {
+            self::SUPER_ADMIN => 'Acceso total al sistema',
+            self::ADMIN => 'Gestión completa de la sucursal',
+            self::MANAGER => 'Supervisión de operaciones y reportes',
+            self::CASHIER => 'Procesar pagos y manejar caja',
+            self::WAITER => 'Tomar pedidos y atender mesas',
+            self::KITCHEN => 'Ver y gestionar pedidos de cocina',
+            self::DELIVERY => 'Gestión de entregas a domicilio',
+            self::ACCOUNTANT => 'Acceso a reportes financieros',
+        };
+    }
+
     public function defaultPermissions(): array
     {
         return match($this) {

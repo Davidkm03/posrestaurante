@@ -42,6 +42,9 @@ class Order extends Model
         'external_id',
         'scheduled_at',
         'completed_at',
+        'preparation_started_at',
+        'ready_at',
+        'served_at',
     ];
 
     protected function casts(): array
@@ -59,6 +62,9 @@ class Order extends Model
             'paid_amount' => 'decimal:2',
             'scheduled_at' => 'datetime',
             'completed_at' => 'datetime',
+            'preparation_started_at' => 'datetime',
+            'ready_at' => 'datetime',
+            'served_at' => 'datetime',
         ];
     }
 
@@ -92,6 +98,18 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Alias for backward compatibility
+    public function waiter(): BelongsTo
+    {
+        return $this->user();
+    }
+
+    // Alias for cashier (same as waiter in this system)
+    public function cashier(): BelongsTo
+    {
+        return $this->user();
     }
 
     public function cashSession(): BelongsTo
@@ -165,6 +183,22 @@ class Order extends Model
             ->count() + 1;
 
         return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    // Accessors
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->status->label();
+    }
+
+    public function getStatusColorAttribute(): string
+    {
+        return $this->status->color();
+    }
+
+    public function getTypeLabelAttribute(): string
+    {
+        return $this->type->label();
     }
 
     public function recalculateTotals(): void

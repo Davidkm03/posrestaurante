@@ -46,7 +46,7 @@ class OrderController extends Controller
         }
 
         if ($request->filled('waiter')) {
-            $query->where('waiter_id', $request->waiter);
+            $query->where('user_id', $request->waiter);
         }
 
         $orders = $query->latest()->paginate(20);
@@ -66,7 +66,7 @@ class OrderController extends Controller
             'cashier',
             'items.product.category',
             'items.modifiers',
-            'payments.method',
+            'payments.paymentMethod',
             'invoice',
         ]);
 
@@ -143,14 +143,14 @@ class OrderController extends Controller
 
         $orders = Order::where('branch_id', $branchId)
             ->whereDate('created_at', $date)
-            ->with(['items.product', 'payments.method', 'waiter'])
+            ->with(['items.product', 'payments.paymentMethod', 'waiter'])
             ->get();
 
         $summary = [
             'total_orders' => $orders->count(),
-            'total_sales' => $orders->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])->sum('total'),
+            'total_sales' => $orders->where('status', '!=', OrderStatus::CANCELLED->value)->sum('total'),
             'cancelled_orders' => $orders->where('status', OrderStatus::CANCELLED->value)->count(),
-            'avg_ticket' => $orders->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])->avg('total') ?? 0,
+            'avg_ticket' => $orders->where('status', '!=', OrderStatus::CANCELLED->value)->avg('total') ?? 0,
             'by_type' => $orders->groupBy('type')->map->count(),
             'by_status' => $orders->groupBy('status')->map->count(),
             'by_payment' => $orders->flatMap->payments->groupBy('payment_method_id')->map->sum('amount'),

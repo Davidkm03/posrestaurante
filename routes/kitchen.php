@@ -3,6 +3,7 @@
 use App\Http\Controllers\Kitchen\BarDisplayController;
 use App\Http\Controllers\Kitchen\KitchenDisplayController;
 use App\Http\Controllers\Kitchen\PrepStationController;
+use App\Http\Middleware\SetCurrentBranch;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'permission:kitchen.access'])->prefix('kitchen')->name('kitchen.')->group(function () {
+Route::middleware(['auth', 'permission:kitchen.access', SetCurrentBranch::class, 'check.role:cocina,administrador,gerente'])->prefix('kitchen')->name('kitchen.')->group(function () {
 
     // Pantalla principal de cocina (KDS)
     Route::get('/', [KitchenDisplayController::class, 'index'])->name('index');
@@ -25,11 +26,13 @@ Route::middleware(['auth', 'permission:kitchen.access'])->prefix('kitchen')->nam
     Route::post('/items/{item}/start', [KitchenDisplayController::class, 'startItem'])->name('items.start');
     Route::post('/items/{item}/ready', [KitchenDisplayController::class, 'readyItem'])->name('items.ready');
     Route::post('/items/{item}/bump', [KitchenDisplayController::class, 'bumpItem'])->name('items.bump');
+    Route::patch('/orders/{order}/items/{item}/ready', [KitchenDisplayController::class, 'markItemReady'])->name('item.ready');
 
     // Actualizar estado de orden completa
     Route::post('/orders/{order}/start-all', [KitchenDisplayController::class, 'startAll'])->name('orders.start-all');
     Route::post('/orders/{order}/ready-all', [KitchenDisplayController::class, 'readyAll'])->name('orders.ready-all');
     Route::post('/orders/{order}/bump', [KitchenDisplayController::class, 'bumpOrder'])->name('orders.bump');
+    Route::patch('/orders/{order}/update-status', [KitchenDisplayController::class, 'updateStatus'])->name('order.update-status');
 
     // Recall (ver órdenes completadas)
     Route::get('/recall', [KitchenDisplayController::class, 'recall'])->name('recall');

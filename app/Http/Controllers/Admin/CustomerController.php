@@ -19,7 +19,9 @@ class CustomerController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('business_name', 'like', "%{$search}%")
                   ->orWhere('document_number', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%");
@@ -47,7 +49,8 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'customer_type' => 'required|in:' . implode(',', array_column(CustomerType::cases(), 'value')),
             'document_type' => 'required|in:' . implode(',', array_column(DocumentType::cases(), 'value')),
             'document_number' => 'required|string|max:20|unique:customers,document_number',
@@ -60,8 +63,15 @@ class CustomerController extends Controller
             // Campos empresa
             'business_name' => 'nullable|required_if:customer_type,business|string|max:255',
             'tax_regime' => 'nullable|string|max:100',
-            'tax_responsibilities' => 'nullable|string|max:255',
+            'fiscal_responsibilities' => 'nullable|string|max:255',
         ]);
+
+        // Si viene 'name' del formulario antiguo, separarlo en first_name y last_name
+        if ($request->has('name') && !$request->has('first_name')) {
+            $nameParts = explode(' ', $request->name, 2);
+            $validated['first_name'] = $nameParts[0];
+            $validated['last_name'] = $nameParts[1] ?? null;
+        }
 
         Customer::create($validated);
 
@@ -97,7 +107,8 @@ class CustomerController extends Controller
     public function update(Request $request, Customer $customer)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'customer_type' => 'required|in:' . implode(',', array_column(CustomerType::cases(), 'value')),
             'document_type' => 'required|in:' . implode(',', array_column(DocumentType::cases(), 'value')),
             'document_number' => ['required', 'string', 'max:20', Rule::unique('customers')->ignore($customer->id)],
@@ -109,8 +120,15 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'business_name' => 'nullable|string|max:255',
             'tax_regime' => 'nullable|string|max:100',
-            'tax_responsibilities' => 'nullable|string|max:255',
+            'fiscal_responsibilities' => 'nullable|string|max:255',
         ]);
+
+        // Si viene 'name' del formulario antiguo, separarlo en first_name y last_name
+        if ($request->has('name') && !$request->has('first_name')) {
+            $nameParts = explode(' ', $request->name, 2);
+            $validated['first_name'] = $nameParts[0];
+            $validated['last_name'] = $nameParts[1] ?? null;
+        }
 
         $customer->update($validated);
 
@@ -136,12 +154,26 @@ class CustomerController extends Controller
     {
         $search = $request->get('q', '');
 
-        $customers = Customer::where('name', 'like', "%{$search}%")
+        $customers = Customer::where('first_name', 'like', "%{$search}%")
+            ->orWhere('last_name', 'like', "%{$search}%")
+            ->orWhere('business_name', 'like', "%{$search}%")
             ->orWhere('document_number', 'like', "%{$search}%")
             ->orWhere('phone', 'like', "%{$search}%")
             ->limit(10)
-            ->get(['id', 'name', 'document_type', 'document_number', 'phone', 'email']);
+            ->get();
 
-        return response()->json($customers);
+        // Map to include full name for compatibility
+        return response()->json($customers->map(function ($customer) {
+            return [
+                'id' => $customer->id,
+                'name' => $customer->full_name,
+                'first_name' => $customer->first_name,
+                'last_name' => $customer->last_name,
+                'document_type' => $customer->document_type,
+                'document_number' => $customer->document_number,
+                'phone' => $customer->phone,
+                'email' => $customer->email,
+            ];
+        }));
     }
 }

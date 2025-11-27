@@ -77,7 +77,7 @@
                                 <x-badge type="danger" dot>Inactivo</x-badge>
                             @endif
                         </button>
-                        <form id="toggle-{{ $user->id }}" action="{{ route('admin.users.toggle-status', $user) }}" method="POST" class="hidden">@csrf @method('PATCH')</form>
+                        <form id="toggle-{{ $user->id }}" action="{{ route('admin.users.toggle-active', $user) }}" method="POST" class="hidden">@csrf @method('PATCH')</form>
                     </x-td>
                     <x-td align="right">
                         <div class="flex items-center justify-end gap-2">

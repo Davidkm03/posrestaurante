@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TableStatus;
+use App\Events\TableStatusUpdated;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -99,6 +100,9 @@ class Table extends Model
         $this->occupied_at = now();
         $this->assigned_waiter_id = $waiter?->id ?? $order->user_id;
         $this->save();
+        
+        // Broadcast cambio de estado
+        event(new TableStatusUpdated($this));
     }
 
     public function release(): void
@@ -107,6 +111,9 @@ class Table extends Model
         $this->current_order_id = null;
         $this->occupied_at = null;
         $this->save();
+        
+        // Broadcast cambio de estado
+        event(new TableStatusUpdated($this));
     }
 
     public function markAsClean(): void
@@ -114,6 +121,9 @@ class Table extends Model
         $this->status = TableStatus::FREE;
         $this->assigned_waiter_id = null;
         $this->save();
+        
+        // Broadcast cambio de estado
+        event(new TableStatusUpdated($this));
     }
 
     public function getOccupiedDuration(): ?int

@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rappi Integration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Rappi delivery platform integration.
+    | Get your credentials from Rappi Partners program.
+    |
+    */
+
+    'rappi' => [
+        'client_id' => env('RAPPI_CLIENT_ID'),
+        'client_secret' => env('RAPPI_CLIENT_SECRET'),
+        'store_id' => env('RAPPI_STORE_ID'),
+        'domain' => env('RAPPI_DOMAIN', 'api.rappi.com.co'),
+    ],
+
 ];

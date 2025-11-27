@@ -113,6 +113,21 @@ class Invoice extends Model
         return $this->morphOne(DIANDocument::class, 'documentable');
     }
 
+    /**
+     * Get payments through the order relationship
+     */
+    public function payments()
+    {
+        return $this->hasManyThrough(
+            Payment::class,
+            Order::class,
+            'id', // Foreign key on orders table
+            'order_id', // Foreign key on payments table
+            'order_id', // Local key on invoices table
+            'id' // Local key on orders table
+        );
+    }
+
     // Scopes
     public function scopeApproved($query)
     {

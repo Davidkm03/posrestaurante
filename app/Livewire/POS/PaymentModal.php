@@ -28,8 +28,16 @@ class PaymentModal extends Component
     public ?Customer $customer = null;
     public string $invoiceType = 'pos';
     public bool $showCustomerSearch = false;
+    public bool $showCustomerCreate = false;
     public string $customerSearch = '';
     public array $customerResults = [];
+    public array $newCustomer = [
+        'name' => '',
+        'document_type' => '13', // CC por defecto
+        'document_number' => '',
+        'phone' => '',
+        'email' => '',
+    ];
 
     // Calculated
     public float $totalPaid = 0;
@@ -131,12 +139,25 @@ class PaymentModal extends Component
             return;
         }
 
-        $this->customerResults = Customer::where('name', 'like', "%{$this->customerSearch}%")
+        $customers = Customer::where(function ($query) {
+                $query->where('first_name', 'like', "%{$this->customerSearch}%")
+                    ->orWhere('last_name', 'like', "%{$this->customerSearch}%")
+                    ->orWhere('business_name', 'like', "%{$this->customerSearch}%");
+            })
             ->orWhere('document_number', 'like', "%{$this->customerSearch}%")
             ->orWhere('phone', 'like', "%{$this->customerSearch}%")
             ->limit(5)
-            ->get()
-            ->toArray();
+            ->get();
+
+        // Map to array with 'name' field for compatibility with view
+        $this->customerResults = $customers->map(function ($customer) {
+            return [
+                'id' => $customer->id,
+                'name' => $customer->full_name, // Usar el accessor del modelo
+                'document_number' => $customer->document_number,
+                'phone' => $customer->phone,
+            ];
+        })->toArray();
     }
 
     public function selectCustomer(int $customerId)
@@ -158,6 +179,90 @@ class PaymentModal extends Component
         $this->customer = null;
         $this->customerId = null;
         $this->invoiceType = 'pos';
+    }
+
+    public function showCreateForm()
+    {
+        // Pre-fill with search if it looks like a name
+        if (strlen($this->customerSearch) >= 2 && !is_numeric($this->customerSearch)) {
+            $this->newCustomer['name'] = $this->customerSearch;
+        } elseif (is_numeric($this->customerSearch)) {
+            $this->newCustomer['document_number'] = $this->customerSearch;
+        }
+        
+        $this->showCustomerSearch = false;
+        $this->showCustomerCreate = true;
+    }
+
+    public function cancelCreateCustomer()
+    {
+        $this->showCustomerCreate = false;
+        $this->showCustomerSearch = false;
+        $this->newCustomer = [
+            'name' => '',
+            'document_type' => '13', // CC
+            'document_number' => '',
+            'phone' => '',
+            'email' => '',
+        ];
+    }
+
+    public function createCustomer()
+    {
+        // Validate
+        if (empty($this->newCustomer['name'])) {
+            $this->dispatch('notify', type: 'error', message: 'El nombre es requerido');
+            return;
+        }
+
+        if (empty($this->newCustomer['document_number'])) {
+            $this->dispatch('notify', type: 'error', message: 'El documento es requerido');
+            return;
+        }
+
+        try {
+            // Split name into first_name and last_name
+            $nameParts = explode(' ', trim($this->newCustomer['name']), 2);
+            $firstName = $nameParts[0];
+            $lastName = $nameParts[1] ?? '';
+
+            // Create customer
+            $customer = Customer::create([
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'document_type' => $this->newCustomer['document_type'],
+                'document_number' => $this->newCustomer['document_number'],
+                'phone' => $this->newCustomer['phone'] ?? null,
+                'email' => $this->newCustomer['email'] ?? null,
+                'branch_id' => session('current_branch_id'),
+                'customer_type' => 'natural',
+                'is_active' => true,
+            ]);
+
+            // Select the new customer
+            $this->customer = $customer;
+            $this->customerId = $customer->id;
+            $this->showCustomerCreate = false;
+            
+            // Reset form
+            $this->newCustomer = [
+                'name' => '',
+                'document_type' => '13', // CC
+                'document_number' => '',
+                'phone' => '',
+                'email' => '',
+            ];
+
+            // Update invoice type if needed
+            if ($customer->document_type !== 'consumidor_final') {
+                $this->invoiceType = 'electronic';
+            }
+
+            $this->dispatch('notify', type: 'success', message: 'Cliente creado exitosamente');
+
+        } catch (\Exception $e) {
+            $this->dispatch('notify', type: 'error', message: 'Error al crear cliente: ' . $e->getMessage());
+        }
     }
 
     public function processPayment()
@@ -186,23 +291,27 @@ class PaymentModal extends Component
                 $this->order->update(['customer_id' => $this->customerId]);
             }
 
-            // Process each payment
-            foreach ($this->payments as $payment) {
-                $paymentService->processPayment($this->order, [
-                    'method' => $payment['method'],
-                    'amount' => $payment['amount'],
-                    'reference' => $payment['reference'],
-                ]);
-            }
+            // Complete order with payments
+            $order = $paymentService->completeOrder($this->order, $this->payments);
 
             // Generate invoice if needed
-            if ($this->invoiceType === 'electronic') {
-                $invoiceService = app(\App\Services\InvoiceService::class);
-                $invoiceService->generate($this->order);
+            if ($this->invoiceType === 'electronic' && $this->customerId) {
+                try {
+                    $invoiceService = app(\App\Services\InvoiceService::class);
+                    $invoice = $invoiceService->generateFromOrder($order);
+                    $this->dispatch('notify', type: 'success', message: "Factura {$invoice->invoice_number} generada");
+                } catch (\Exception $e) {
+                    // Invoice generation failed but payment was successful
+                    $this->dispatch('notify', type: 'warning', message: 'Pago exitoso. Error al generar factura: ' . $e->getMessage());
+                }
             }
 
             $this->dispatch('notify', type: 'success', message: 'Pago procesado correctamente');
             $this->dispatch('payment-completed', orderId: $this->orderId, change: $this->change);
+            
+            // Abrir ventana de impresión del recibo
+            $this->dispatch('print-receipt', orderId: $this->orderId);
+            
             $this->close();
 
         } catch (\Exception $e) {

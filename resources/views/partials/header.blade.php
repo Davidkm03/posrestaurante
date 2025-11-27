@@ -45,7 +45,7 @@
         <div class="ml-4 flex items-center gap-4">
             <!-- Kitchen Display Link -->
             @can('kitchen.access')
-            <a href="{{ route('kitchen.display') }}"
+            <a href="{{ route('kitchen.index') }}"
                class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                title="Pantalla Cocina">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

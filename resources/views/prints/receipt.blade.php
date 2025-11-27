@@ -147,7 +147,7 @@
         @foreach($order->payments as $payment)
         <table>
             <tr>
-                <td>{{ $payment->method->name ?? 'Efectivo' }}</td>
+                <td>{{ $payment->paymentMethod->name ?? 'Efectivo' }}</td>
                 <td class="right">${{ number_format($payment->amount, 0, ',', '.') }}</td>
             </tr>
         </table>

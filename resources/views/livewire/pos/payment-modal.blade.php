@@ -1,6 +1,7 @@
-@if($isOpen && $order)
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" wire:click.self="close">
-    <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[95vh] overflow-hidden flex flex-col">
+<div>
+    @if($isOpen && $order)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" wire:click.self="close">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[95vh] overflow-hidden flex flex-col">
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-700">
             <div>
@@ -25,30 +26,27 @@
                         <div class="space-y-2 text-sm max-h-40 overflow-y-auto">
                             @foreach($order->items as $item)
                                 <div class="flex justify-between text-gray-300">
-                                    <span>{{ $item->quantity }}x {{ $item->product_name }}</span>
-                                    <span>${{ number_format($item->subtotal, 0, ',', '.') }}</span>
+                                    <span>{{ intval($item->quantity) }}x {{ $item->name }}</span>
+                                    <span>${{ number_format($item->total, 0, ',', '.') }}</span>
                                 </div>
                             @endforeach
                         </div>
                         <div class="border-t border-gray-600 mt-3 pt-3 space-y-1">
-                            <div class="flex justify-between text-gray-400 text-sm">
-                                <span>Subtotal</span>
-                                <span>${{ number_format($order->subtotal, 0, ',', '.') }}</span>
-                            </div>
-                            @if($order->discount > 0)
+                            @if($order->discount_amount > 0)
+                                <div class="flex justify-between text-gray-400 text-sm">
+                                    <span>Subtotal</span>
+                                    <span>${{ number_format($order->subtotal, 0, ',', '.') }}</span>
+                                </div>
                                 <div class="flex justify-between text-green-400 text-sm">
                                     <span>Descuento</span>
-                                    <span>-${{ number_format($order->discount, 0, ',', '.') }}</span>
+                                    <span>-${{ number_format($order->discount_amount, 0, ',', '.') }}</span>
                                 </div>
                             @endif
-                            <div class="flex justify-between text-gray-400 text-sm">
-                                <span>IVA</span>
-                                <span>${{ number_format($order->tax, 0, ',', '.') }}</span>
-                            </div>
-                            <div class="flex justify-between text-white text-xl font-bold pt-2">
+                            <div class="flex justify-between text-white text-xl font-bold {{ $order->discount_amount > 0 ? 'pt-2' : '' }}">
                                 <span>TOTAL</span>
                                 <span>${{ number_format($order->total, 0, ',', '.') }}</span>
                             </div>
+                            <p class="text-xs text-gray-400 mt-1">* Precio incluye IVA</p>
                         </div>
                     </div>
 
@@ -81,17 +79,82 @@
                                             </button>
                                         @endforeach
                                     </div>
+                                @elseif(strlen($customerSearch) >= 2)
+                                    <div class="bg-gray-800 rounded-lg p-3 text-center">
+                                        <p class="text-gray-400 text-sm mb-2">Cliente no encontrado</p>
+                                        <button wire:click="showCreateForm"
+                                                class="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                                            + Crear nuevo cliente
+                                        </button>
+                                    </div>
                                 @endif
 
                                 <button wire:click="$set('showCustomerSearch', false)" class="text-gray-400 hover:text-white text-sm">
                                     Cancelar
                                 </button>
                             </div>
+                        @elseif($showCustomerCreate)
+                            <!-- Create Customer Form -->
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-gray-400 text-xs mb-1">Nombre *</label>
+                                    <input type="text"
+                                           wire:model="newCustomer.name"
+                                           placeholder="Nombre del cliente"
+                                           class="w-full px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-gray-400 text-xs mb-1">Tipo Doc.</label>
+                                        <select wire:model="newCustomer.document_type"
+                                                class="w-full px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm">
+                                            <option value="13">CC - Cédula de Ciudadanía</option>
+                                            <option value="31">NIT - Número de Identificación Tributaria</option>
+                                            <option value="22">CE - Cédula de Extranjería</option>
+                                            <option value="41">Pasaporte</option>
+                                            <option value="12">TI - Tarjeta de Identidad</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-400 text-xs mb-1">Documento *</label>
+                                        <input type="text"
+                                               wire:model="newCustomer.document_number"
+                                               placeholder="Número"
+                                               class="w-full px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-gray-400 text-xs mb-1">Teléfono</label>
+                                        <input type="tel"
+                                               wire:model="newCustomer.phone"
+                                               placeholder="Teléfono"
+                                               class="w-full px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-400 text-xs mb-1">Email</label>
+                                        <input type="email"
+                                               wire:model="newCustomer.email"
+                                               placeholder="Email"
+                                               class="w-full px-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 text-sm">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button wire:click="createCustomer"
+                                            class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium">
+                                        Crear
+                                    </button>
+                                    <button wire:click="cancelCreateCustomer"
+                                            class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
                         @elseif($customer)
                             <div class="flex items-center justify-between bg-gray-700 rounded-lg p-3">
                                 <div>
                                     <p class="text-white font-medium">{{ $customer->name }}</p>
-                                    <p class="text-gray-400 text-sm">{{ $customer->document_type }}: {{ $customer->document_number }}</p>
+                                    <p class="text-gray-400 text-sm">{{ $customer->document_type->shortLabel() }}: {{ $customer->document_number }}</p>
                                 </div>
                                 <button wire:click="removeCustomer" class="text-red-400 hover:text-red-300">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,5 +319,5 @@
             </button>
         </div>
     </div>
+    @endif
 </div>
-@endif

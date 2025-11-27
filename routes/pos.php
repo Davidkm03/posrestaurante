@@ -6,6 +6,7 @@ use App\Http\Controllers\POS\PaymentController;
 use App\Http\Controllers\POS\POSController;
 use App\Http\Controllers\POS\QuickSaleController;
 use App\Http\Controllers\POS\TableMapController;
+use App\Http\Middleware\SetCurrentBranch;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,10 +15,21 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'permission:pos.access'])->prefix('pos')->name('pos.')->group(function () {
+Route::middleware(['auth', 'permission:pos.access', SetCurrentBranch::class, 'check.role:cajero,administrador,gerente'])->prefix('pos')->name('pos.')->group(function () {
 
     // Pantalla principal POS
     Route::get('/', [POSController::class, 'index'])->name('index');
+    
+    // Vistas específicas de POS
+    Route::get('/table/{table}', [POSController::class, 'table'])->name('table');
+    Route::get('/quick-sale', [POSController::class, 'quickSale'])->name('quick-sale');
+    Route::get('/takeaway', [POSController::class, 'takeaway'])->name('takeaway');
+    Route::get('/delivery', [POSController::class, 'delivery'])->name('delivery');
+    Route::get('/product/{product}', [POSController::class, 'getProduct'])->name('product');
+    
+    // Caja desde POS
+    Route::get('/open-cash', [POSController::class, 'openCash'])->name('open-cash');
+    Route::post('/open-cash', [POSController::class, 'storeOpenCash'])->name('store-open-cash');
 
     // Productos y categorías
     Route::get('categories', [POSController::class, 'categories'])->name('categories');
@@ -87,20 +99,20 @@ Route::middleware(['auth', 'permission:pos.access'])->prefix('pos')->name('pos.'
         Route::get('/x-report', [POSController::class, 'xReport'])->name('x-report');
     });
 
-    // Venta rápida (sin mesa)
-    Route::get('/quick-sale', [QuickSaleController::class, 'index'])->name('quick-sale');
+    // Venta rápida duplicada - ya está arriba
+    // Route::get('/quick-sale', [QuickSaleController::class, 'index'])->name('quick-sale');
 
-    // Domicilios
-    Route::prefix('delivery')->name('delivery.')->group(function () {
-        Route::get('/', [DeliveryController::class, 'index'])->name('index');
-        Route::post('/', [DeliveryController::class, 'store'])->name('store');
-        Route::get('/zones', [DeliveryController::class, 'zones'])->name('zones');
-        Route::get('/calculate-fee', [DeliveryController::class, 'calculateFee'])->name('calculate-fee');
-    });
+    // Domicilios - Controlador no existe, comentado por ahora
+    // Route::prefix('delivery')->name('delivery.')->group(function () {
+    //     Route::get('/', [DeliveryController::class, 'index'])->name('index');
+    //     Route::post('/', [DeliveryController::class, 'store'])->name('store');
+    //     Route::get('/zones', [DeliveryController::class, 'zones'])->name('zones');
+    //     Route::get('/calculate-fee', [DeliveryController::class, 'calculateFee'])->name('calculate-fee');
+    // });
 
     // Impresión
     Route::prefix('print')->name('print.')->group(function () {
-        Route::post('/receipt/{order}', [POSController::class, 'printReceipt'])->name('receipt');
+        Route::get('/receipt/{order}', [POSController::class, 'printReceipt'])->name('receipt');
         Route::post('/kitchen/{order}', [POSController::class, 'printKitchen'])->name('kitchen');
         Route::post('/pre-bill/{order}', [POSController::class, 'printPreBill'])->name('pre-bill');
     });

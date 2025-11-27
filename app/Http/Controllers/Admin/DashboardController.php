@@ -22,7 +22,7 @@ class DashboardController extends Controller
         // Ventas del día
         $todaySales = Order::where('branch_id', $branchId)
             ->whereDate('created_at', $today)
-            ->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])
+            ->where('status', '!=', OrderStatus::CANCELLED->value)
             ->sum('total');
 
         // Órdenes del día
@@ -38,19 +38,21 @@ class DashboardController extends Controller
         // Ticket promedio
         $avgTicket = Order::where('branch_id', $branchId)
             ->whereDate('created_at', $today)
-            ->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])
+            ->where('status', '!=', OrderStatus::CANCELLED->value)
             ->avg('total') ?? 0;
 
         // Caja actual
-        $currentCashSession = CashSession::where('branch_id', $branchId)
+        $currentCashSession = CashSession::whereHas('cashRegister', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->whereNull('closed_at')
             ->first();
 
         // Ventas por hora (últimas 12 horas)
         $salesByHour = Order::where('branch_id', $branchId)
             ->whereDate('created_at', $today)
-            ->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])
-            ->selectRaw('HOUR(created_at) as hour, SUM(total) as total, COUNT(*) as count')
+            ->where('status', '!=', OrderStatus::CANCELLED->value)
+            ->selectRaw("CAST(strftime('%H', created_at) AS INTEGER) as hour, SUM(total) as total, COUNT(*) as count")
             ->groupBy('hour')
             ->orderBy('hour')
             ->get()
@@ -62,8 +64,8 @@ class DashboardController extends Controller
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->where('orders.branch_id', $branchId)
             ->whereDate('orders.created_at', $today)
-            ->whereNotIn('orders.status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])
-            ->selectRaw('products.name, SUM(order_items.quantity) as quantity, SUM(order_items.subtotal) as total')
+            ->where('orders.status', '!=', OrderStatus::CANCELLED->value)
+            ->selectRaw('products.name, SUM(order_items.quantity) as quantity, SUM(order_items.total) as total')
             ->groupBy('products.id', 'products.name')
             ->orderByDesc('quantity')
             ->limit(5)
@@ -103,8 +105,8 @@ class DashboardController extends Controller
 
         $sales = Order::where('branch_id', $branchId)
             ->where('created_at', '>=', $startDate)
-            ->whereNotIn('status', [OrderStatus::CANCELLED->value, OrderStatus::VOIDED->value])
-            ->selectRaw('DATE(created_at) as date, SUM(total) as total, COUNT(*) as count')
+            ->where('status', '!=', OrderStatus::CANCELLED->value)
+            ->selectRaw("strftime('%Y-%m-%d', created_at) as date, SUM(total) as total, COUNT(*) as count")
             ->groupBy('date')
             ->orderBy('date')
             ->get();
